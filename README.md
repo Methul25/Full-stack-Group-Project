@@ -2,19 +2,6 @@
 
 SyncBoard is a collaborative task board developed progressively across the five sessions of the Full-Stack Development workshop. Session 1 delivers a React client running entirely on mock data; later sessions add the API, database, testing, real-time collaboration, containers, and deployment.
 
-## Member 1 contribution
-
-Member 1 established the shared development foundation:
-
-- Vite and React application scaffold
-- Agreed `src` folder structure
-- ESLint and Prettier configuration
-- Shared npm development and validation scripts
-- Git ignore and editor conventions
-- Branch, commit, review, and pull-request instructions
-
-Application features are intentionally left to the members assigned to those areas.
-
 ## Requirements
 
 - Node.js 20 or newer
