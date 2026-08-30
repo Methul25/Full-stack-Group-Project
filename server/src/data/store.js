@@ -1,10 +1,11 @@
 import bcrypt from 'bcryptjs'
+import { config } from '../config.js'
 
 export const store = { users: [], boards: [], tasks: [] }
 
 export async function seedStore() {
-  if (store.users.length) return
-  const passwordHash = await bcrypt.hash('password123', 12)
+  if (!config.seedDemoData || store.users.length) return
+  const passwordHash = await bcrypt.hash(config.seedUserPassword, 12)
   store.users.push(
     { id: 'user-maya', name: 'Maya', email: 'maya@syncboard.test', passwordHash },
     { id: 'user-noah', name: 'Noah', email: 'noah@syncboard.test', passwordHash },

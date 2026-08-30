@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth.js'
 
 export default function LoginPage() {
   const auth = useAuth(); const navigate = useNavigate(); const location = useLocation()
-  const [values, setValues] = useState({ email: 'maya@syncboard.test', password: 'password123' })
+  const [values, setValues] = useState({ email: '', password: '' })
   if (auth.user) return <Navigate to="/" replace />
   const submit = async (event) => { event.preventDefault(); try { await auth.login(values); navigate(location.state?.from?.pathname ?? '/', { replace: true }) } catch { /* shown below */ } }
   return <AuthCard title="Welcome back" subtitle="Log in to open your protected board."><form className="auth-form" onSubmit={submit}><label>Email<input type="email" value={values.email} onChange={(event) => setValues({ ...values, email: event.target.value })} required /></label><label>Password<input type="password" value={values.password} onChange={(event) => setValues({ ...values, password: event.target.value })} required /></label>{auth.error && <p className="form-error">{auth.error.message}</p>}<Button type="submit" disabled={auth.loading}>{auth.loading ? 'Logging in…' : 'Log in'}</Button><p>New here? <Link to="/register">Create an account</Link></p></form></AuthCard>
