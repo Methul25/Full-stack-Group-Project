@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { columns } from '../../data/mockTasks.js'
+import { columns } from '../../data/columns.js'
 import { useTasks } from '../../hooks/useTasks.js'
 import Button from '../Button/Button.jsx'
 
