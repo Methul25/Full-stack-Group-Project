@@ -1,31 +1,11 @@
-import { mockTasks } from '../data/mockTasks.js'
+import { request } from './client.js'
 
-const ARTIFICIAL_DELAY = 650
-let tasks = mockTasks.map((task) => ({ ...task }))
-
-const wait = () => new Promise((resolve) => window.setTimeout(resolve, ARTIFICIAL_DELAY))
-
-export async function getTasks({ fail = false } = {}) {
-  await wait()
-  if (fail) throw new Error('The mock service could not load your board.')
-  return tasks.map((task) => ({ ...task }))
+export async function getTasks(params = {}) {
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== ''))
+  return (await request(`/api/tasks?${query}`)).data
 }
 
-export async function createTask(task) {
-  await wait()
-  const created = { ...task, id: crypto.randomUUID() }
-  tasks = [...tasks, created]
-  return created
-}
-
-export async function updateTask(id, changes) {
-  await wait()
-  tasks = tasks.map((task) => (task.id === id ? { ...task, ...changes } : task))
-  return tasks.find((task) => task.id === id)
-}
-
-export async function deleteTask(id) {
-  await wait()
-  tasks = tasks.filter((task) => task.id !== id)
-  return id
-}
+export async function getTask(id) { return (await request(`/api/tasks/${id}`)).data }
+export async function createTask(task) { return (await request('/api/tasks', { method: 'POST', body: JSON.stringify(task) })).data }
+export async function updateTask(id, changes) { return (await request(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(changes) })).data }
+export async function deleteTask(id) { await request(`/api/tasks/${id}`, { method: 'DELETE' }); return id }
