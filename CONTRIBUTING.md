@@ -16,7 +16,6 @@ Use one of these prefixes when appropriate: `feature/`, `fix/`, `docs/`, `test/`
 
 ```bash
 npm run lint
-npm run format:check
 npm run build
 git status
 git diff
@@ -48,4 +47,4 @@ git push -u origin <your-branch>
 - Components must not call `fetch` directly; network access belongs in `src/api`.
 - Shared stateful logic belongs in `src/hooks` and `src/context`.
 - Pure framework-independent functions belong in `src/utils`.
-- Mock data belongs in `src/data` and will be replaced in a later session.
+- Static client metadata, such as task-column definitions, belongs in `src/data`.
