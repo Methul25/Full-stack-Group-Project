@@ -9,16 +9,28 @@ export class ApiError extends Error {
   }
 }
 
+export class NetworkError extends Error {
+  constructor() {
+    super('The server is unreachable. Your changes are saved on this device.')
+    this.code = 'NETWORK_ERROR'
+  }
+}
+
 export async function request(path, options = {}) {
   const token = localStorage.getItem('syncboard_token')
-  const response = await fetch(BASE_URL + path, {
-    ...options,
-    headers: {
-      ...(options.body && { 'Content-Type': 'application/json' }),
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    },
-  })
+  let response
+  try {
+    response = await fetch(BASE_URL + path, {
+      ...options,
+      headers: {
+        ...(options.body && { 'Content-Type': 'application/json' }),
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...options.headers,
+      },
+    })
+  } catch {
+    throw new NetworkError()
+  }
   if (response.status === 401 && !path.endsWith('/login')) {
     localStorage.removeItem('syncboard_token')
     window.dispatchEvent(new Event('auth:expired'))

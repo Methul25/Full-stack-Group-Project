@@ -5,6 +5,9 @@ import App from './App.jsx'
 import { TaskProvider } from './context/TaskContext.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import './styles/index.css'
+import { registerServiceWorker } from './utils/registerServiceWorker.js'
+
+registerServiceWorker()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
