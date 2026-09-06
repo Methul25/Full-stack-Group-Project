@@ -1,0 +1,79 @@
+{
+  "info": {
+    "name": "SyncBoard Assignment 03 - Persistence and Concurrency",
+    "description": "MongoDB persistence, aggregation, ObjectId validation and optimistic concurrency checks for Session 3.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000" },
+    { "key": "token", "value": "" },
+    { "key": "taskId", "value": "" },
+    { "key": "baseVersion", "value": "0" },
+    { "key": "staleVersion", "value": "0" }
+  ],
+  "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+  "item": [
+    {
+      "name": "01 Health includes MongoDB state",
+      "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{baseUrl}}/api/health" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('connected', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().data.database).to.eql('connected'); });"] } }]
+    },
+    {
+      "name": "02 Login demo user",
+      "request": {
+        "auth": { "type": "noauth" }, "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"maya@syncboard.test\",\n  \"password\": \"{{seedPassword}}\"\n}" },
+        "url": "{{baseUrl}}/api/auth/login"
+      },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('login succeeds', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('token', pm.response.json().data.token);"] } }]
+    },
+    {
+      "name": "03 List persisted tasks",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/tasks?sort=dueDate&page=1&limit=50" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('tasks and pagination returned', () => { pm.response.to.have.status(200); const body = pm.response.json(); pm.expect(body.data).to.be.an('array'); pm.expect(body.meta).to.have.property('total'); });"] } }]
+    },
+    {
+      "name": "04 Create task",
+      "request": {
+        "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"title\": \"Verify Session 3 persistence\",\n  \"description\": \"Created by the Assignment 3 Postman collection\",\n  \"assignee\": \"Maya\",\n  \"status\": \"todo\",\n  \"priority\": \"high\",\n  \"dueDate\": \"2026-09-07\"\n}" },
+        "url": "{{baseUrl}}/api/tasks"
+      },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('created with version zero', () => { pm.response.to.have.status(201); pm.expect(pm.response.json().data.version).to.eql(0); });", "const task = pm.response.json().data; pm.collectionVariables.set('taskId', task.id); pm.collectionVariables.set('baseVersion', task.version); pm.collectionVariables.set('staleVersion', task.version);"] } }]
+    },
+    {
+      "name": "05 Version-checked update",
+      "request": {
+        "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"status\": \"doing\",\n  \"baseVersion\": {{baseVersion}}\n}" },
+        "url": "{{baseUrl}}/api/tasks/{{taskId}}"
+      },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('version increments atomically', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().data.version).to.eql(Number(pm.collectionVariables.get('baseVersion')) + 1); });", "pm.collectionVariables.set('baseVersion', pm.response.json().data.version);"] } }]
+    },
+    {
+      "name": "06 Reject stale update with 409",
+      "request": {
+        "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"title\": \"Stale browser title\",\n  \"baseVersion\": {{staleVersion}}\n}" },
+        "url": "{{baseUrl}}/api/tasks/{{taskId}}"
+      },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('conflict includes current copy', () => { pm.response.to.have.status(409); const error = pm.response.json().error; pm.expect(error.code).to.eql('VERSION_CONFLICT'); pm.expect(error.details.current).to.have.property('version'); });"] } }]
+    },
+    {
+      "name": "07 Overdue aggregation",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/tasks/analytics/overdue" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('aggregation returns assignee groups', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().data).to.be.an('array'); });"] } }]
+    },
+    {
+      "name": "08 Malformed ObjectId returns 404",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/tasks/not-a-mongo-id" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('not a server error', () => { pm.response.to.have.status(404); pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'); });"] } }]
+    },
+    {
+      "name": "09 Delete task",
+      "request": { "method": "DELETE", "url": "{{baseUrl}}/api/tasks/{{taskId}}" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('deleted', () => pm.response.to.have.status(204));"] } }]
+    }
+  ]
+}

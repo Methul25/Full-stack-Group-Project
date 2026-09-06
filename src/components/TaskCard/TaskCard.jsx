@@ -16,7 +16,7 @@ export default function TaskCard({ task }) {
   return (
     <article className="task-card">
       <div className="task-card-topline">
-        <span className="task-assignee">{task.assignee}</span>
+        <span className="task-assignee">{task.assignee}</span>{task.syncState && <span className={`task-sync-badge task-sync-badge--${task.syncState}`}>{task.syncState}</span>}
         <button className="delete-button" onClick={confirmDelete} disabled={state.saving} aria-label={`Delete ${task.title}`}>×</button>
       </div>
       <Link to={`/tasks/${task.id}`}><h3>{task.title}</h3></Link>
