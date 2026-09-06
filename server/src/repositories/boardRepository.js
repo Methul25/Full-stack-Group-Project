@@ -1,6 +1,11 @@
-import { store } from '../data/store.js'
+import { Board } from '../models/Board.js'
 
 export const boardRepository = {
-  listForUser(userId) { return store.boards.filter((board) => board.memberIds.includes(userId)) },
-  isMember(boardId, userId) { return Boolean(store.boards.find((board) => board.id === boardId)?.memberIds.includes(userId)) },
+  async listForUser(userId) {
+    const boards = await Board.find({ 'members.userId': userId }).sort({ createdAt: 1 })
+    return boards.map((board) => board.toJSON())
+  },
+  async isMember(boardId, userId) {
+    return Boolean(await Board.exists({ _id: boardId, 'members.userId': userId }))
+  },
 }
