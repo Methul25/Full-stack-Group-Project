@@ -18,3 +18,7 @@ export class ForbiddenError extends AppError {
 export class ValidationError extends AppError {
   constructor(details) { super('Validation failed', 400, 'VALIDATION_ERROR', details) }
 }
+
+export class ConflictError extends AppError {
+  constructor(message, details) { super(message, 409, 'VERSION_CONFLICT', details) }
+}
