@@ -1,6 +1,6 @@
 # SyncBoard
 
-SyncBoard is a collaborative task board with a React client and an Express REST API. The current milestone supports user registration, JWT-based login, protected routes, and task creation, viewing, filtering, updating, moving, and deletion.
+SyncBoard is a collaborative task board with a React client and an Express REST API. It supports MongoDB persistence, user registration, JWT-based login, protected routes, offline task caching, queued changes, and conflict resolution.
 
 ## Technology stack
 
@@ -9,7 +9,8 @@ SyncBoard is a collaborative task board with a React client and an Express REST 
 - Node.js and Express 5
 - JSON Web Tokens and bcrypt
 - Zod request validation
-- In-memory repositories for the current milestone
+- MongoDB and Mongoose for persistence
+- PouchDB for device-local caching and queued mutations
 
 ## Architecture
 
@@ -20,14 +21,15 @@ flowchart LR
   API --> Routes[Routes and controllers]
   Routes --> Services[Application services]
   Services --> Repositories[Repositories]
-  Repositories --> Store[(In-memory store)]
+  Repositories --> Store[(MongoDB)]
 ```
 
 The client keeps HTTP access in `src/api`. The server separates routes, controllers, services, repositories, validation schemas, and middleware under `server/src`.
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 20.19 or newer
+- A local MongoDB instance or MongoDB Atlas database
 - npm 10 or newer
 
 ## Run locally
@@ -44,7 +46,7 @@ Create a local `.env` from `.env.example`:
 cp .env.example .env
 ```
 
-On Windows PowerShell, use `Copy-Item .env.example .env` instead. Replace `JWT_SECRET` with a long random value, then start both applications:
+On Windows PowerShell, use `Copy-Item .env.example .env` instead. Set `MONGODB_URI` to your MongoDB connection string and `JWT_SECRET` to a long random value, then start both applications:
 
 ```bash
 npm run dev
@@ -52,7 +54,7 @@ npm run dev
 
 The client runs at `http://localhost:5173` and proxies `/api` requests to the API at `http://localhost:4000`.
 
-Demo data is disabled by default. To seed the two sample users and their tasks for a local demonstration, set `SEED_DEMO_DATA=true` and provide a private `SEED_USER_PASSWORD` in `.env`. Never commit that file or password.
+Demo data is disabled by default. To seed the two sample users and their tasks for a local demonstration, set `SEED_DEMO_DATA=true` and provide a private `SEED_USER_PASSWORD` of at least 8 characters in `.env`. Never commit that file or password.
 
 ## API contract
 
@@ -60,14 +62,15 @@ Successful responses use a `data` property. Collection responses also include `m
 
 | Method | Endpoint | Authentication | Purpose |
 | --- | --- | --- | --- |
-| `GET` | `/api/health` | No | Check API health and uptime |
+| `GET` | `/api/health` | No | Check API health, uptime, and database connection |
 | `POST` | `/api/auth/register` | No | Register a user and create a private board |
 | `POST` | `/api/auth/login` | No | Authenticate and receive a JWT |
 | `GET` | `/api/auth/me` | Bearer token | Restore the current user |
 | `GET` | `/api/tasks` | Bearer token | List and filter owned tasks |
+| `GET` | `/api/tasks/analytics/overdue` | Bearer token | Aggregate overdue tasks by assignee |
 | `GET` | `/api/tasks/:id` | Bearer token | Read an owned task |
 | `POST` | `/api/tasks` | Bearer token | Create a task |
-| `PATCH` | `/api/tasks/:id` | Bearer token | Update or move a task |
+| `PATCH` | `/api/tasks/:id` | Bearer token | Update or move a task using `baseVersion` |
 | `DELETE` | `/api/tasks/:id` | Bearer token | Delete a task |
 
 ## Validate a contribution
@@ -97,12 +100,30 @@ server/src/
   services/     Authentication and task rules
 ```
 
+## Data model and indexes
+
+Board columns and membership entries are embedded because they are bounded and read with the board. Tasks reference boards and users; activity records live in a separate collection because both can grow independently. Mongoose validates collection fields and supplies timestamps; task versions support optimistic concurrency.
+
+Indexes cover unique user email, board membership, task board/status/position, board/due date, assignee/status, task text search, and recent board activity.
+
+## Offline use and conflicts
+
+The browser caches tasks per user in PouchDB and stores pending mutations in an outbox. After an initial online visit, the production service worker caches the application shell for offline reloads. Queued changes replay when the connection returns.
+
+Updates include `baseVersion`. A stale write returns `409 VERSION_CONFLICT` with the current task. Non-overlapping changes merge automatically; overlapping changes show a choice between the server version and the local edit.
+
+Offline access requires a previously cached session and board. Clearing browser storage removes cached tasks and pending edits. The API must be available for registration and initial login.
+
+## API verification
+
+Import `SyncBoard_Assignment_03_Postman_Collection.json` into Postman. Set `baseUrl` and a private `seedPassword` environment variable matching `SEED_USER_PASSWORD`. Enable demo seeding on an empty database to create `maya@syncboard.test` and `noah@syncboard.test`. Do not export populated credentials or tokens.
+
+The collection checks health, task CRUD, version conflicts, validation and overdue aggregation. To check persistence, restart the API and confirm previously created tasks remain. For offline verification, run the production build, disconnect the browser, create/update/delete tasks, reconnect and confirm replay. Use two sessions editing the same task to exercise both conflict choices.
+
 ## Known limitations
 
-- Data is held in memory and resets whenever the API restarts.
-- MongoDB persistence and offline client caching are not implemented yet.
 - Automated client/server tests and CI are not implemented yet.
-- Real-time WebSocket updates and conflict detection are not implemented yet.
+- Real-time WebSocket updates are not implemented yet.
 - Docker packaging and public deployment are not implemented yet.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) before starting a branch or opening a pull request.
