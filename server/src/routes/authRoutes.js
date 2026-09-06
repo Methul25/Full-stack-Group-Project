@@ -17,5 +17,5 @@ const loginLimiter = rateLimit({
 })
 router.post('/register', validate(registerSchema), asyncHandler(controller.register))
 router.post('/login', loginLimiter, validate(loginSchema), asyncHandler(controller.login))
-router.get('/me', authenticate, controller.me)
+router.get('/me', authenticate, asyncHandler(controller.me))
 export default router
