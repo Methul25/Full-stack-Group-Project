@@ -1,11 +1,28 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Button from '../Button/Button.jsx'
+import { getAssignees } from '../../api/tasks.js'
+import { useAuth } from '../../hooks/useAuth.js'
 
-const initial = { title: '', assignee: 'Maya', status: 'todo', dueDate: '' }
+const initial = { title: '', assignee: '', status: 'todo', dueDate: '' }
 
 export default function TaskForm({ onSubmit, saving, serverErrors = [] }) {
-  const [values, setValues] = useState(initial)
+  const { user } = useAuth()
+  const cacheKey = `syncboard-assignees:${user.id}`
+  const [members, setMembers] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(cacheKey)) ?? [{ id: user.id, name: user.name }] }
+    catch { return [{ id: user.id, name: user.name }] }
+  })
+  const [values, setValues] = useState(() => ({ ...initial, assignee: user.name }))
   const [errors, setErrors] = useState({})
+  useEffect(() => {
+    let active = true
+    getAssignees().then((assignees) => {
+      if (!active) return
+      setMembers(assignees)
+      localStorage.setItem(cacheKey, JSON.stringify(assignees))
+    }).catch(() => { /* Cached members remain available offline; the API validates assignment on replay. */ })
+    return () => { active = false }
+  }, [cacheKey])
   const update = (event) => setValues((current) => ({ ...current, [event.target.name]: event.target.value }))
 
   const validate = () => {
@@ -35,7 +52,7 @@ export default function TaskForm({ onSubmit, saving, serverErrors = [] }) {
       </label>
       <div className="form-section-heading"><span>02</span><div><h2>Planning details</h2><p>Set ownership, urgency, and timing.</p></div></div>
       <div className="form-grid">
-        <label>Assignee<select name="assignee" value={values.assignee} onChange={update}><option>Maya</option><option>Noah</option><option>Ava</option></select></label>
+        <label>Assignee<select name="assignee" value={values.assignee} onChange={update}>{members.map((member) => <option key={member.id} value={member.name}>{member.name}</option>)}</select></label>
         <label>Status<select name="status" value={values.status} onChange={update}><option value="todo">To do</option><option value="doing">In progress</option><option value="done">Completed</option></select></label>
         <label>Due date <em>*</em><input type="date" name="dueDate" value={values.dueDate} onChange={update} aria-invalid={Boolean(errors.dueDate || serverError('dueDate'))} />{(errors.dueDate || serverError('dueDate')) && <small>{errors.dueDate || serverError('dueDate')}</small>}</label>
       </div>

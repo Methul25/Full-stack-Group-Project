@@ -66,6 +66,7 @@ Successful responses use a `data` property. Collection responses also include `m
 | `POST` | `/api/auth/register` | No | Register a user and create a private board |
 | `POST` | `/api/auth/login` | No | Authenticate and receive a JWT |
 | `GET` | `/api/auth/me` | Bearer token | Restore the current user |
+| `GET` | `/api/tasks/assignees` | Bearer token | List members of the default board |
 | `GET` | `/api/tasks` | Bearer token | List and filter owned tasks |
 | `GET` | `/api/tasks/analytics/overdue` | Bearer token | Aggregate overdue tasks by assignee |
 | `GET` | `/api/tasks/:id` | Bearer token | Read an owned task |
@@ -102,7 +103,15 @@ server/src/
 
 ## Data model and indexes
 
-Board columns and membership entries are embedded because they are bounded and read with the board. Tasks reference boards and users; activity records live in a separate collection because both can grow independently. Mongoose validates collection fields and supplies timestamps; task versions support optimistic concurrency.
+| Data | Storage | Reason |
+| --- | --- | --- |
+| Board columns | Embedded in boards | Bounded list, read and managed with its board |
+| Board membership | Embedded user references and roles | Bounded board access list; users are shared across boards |
+| Tasks | Separate collection referencing boards and assignees | Queried and updated independently; may grow without bound |
+| Users | Separate collection | Shared identity, referenced by membership and task assignment |
+| Activity | Separate collection referencing board, task and user | Append-only history grows independently |
+
+Mongoose validates collection fields and supplies timestamps; task versions support optimistic concurrency. Task creation resolves the selected board member to `assigneeId`; `assignee` remains a display-name snapshot for the existing client and API. The name-based assignment API rejects ambiguous duplicate names within a board.
 
 Indexes cover unique user email, board membership, task board/status/position, board/due date, assignee/status, task text search, and recent board activity.
 
