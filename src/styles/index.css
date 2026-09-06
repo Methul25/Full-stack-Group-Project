@@ -11,11 +11,11 @@ a { color: inherit; }
 .brand-mark { display: flex; gap: 3px; align-items: end; height: 22px; }
 .brand-mark i { display: block; width: 5px; background: var(--teal); border-radius: 5px; transform: skew(-13deg); }
 .brand-mark i:nth-child(1) { height: 12px; }.brand-mark i:nth-child(2) { height: 21px; }.brand-mark i:nth-child(3) { height: 16px; }
-.topbar nav { display: flex; align-items: center; gap: 8px; }
+.topbar nav { display: flex; flex: 1; align-items: center; gap: 8px; }
 .topbar nav a { text-decoration: none; color: #56615e; padding: 10px 15px; border-radius: 8px; font-weight: 600; font-size: 14px; }
 .topbar nav a.active { color: var(--ink); background: #e9e6df; }
 .topbar nav .new-task-link { color: white; background: var(--navy); margin-left: 4px; }
-.signed-in-user { color: var(--muted); font-size: 12px; margin-left: 10px; }.logout-button { border: 0; background: transparent; color: var(--teal); cursor: pointer; font-weight: 700; }
+.signed-in-user { color: var(--muted); font-size: 12px; margin-left: auto; }.logout-button { border: 0; background: transparent; color: var(--teal); cursor: pointer; font-weight: 700; }
 .new-task-link span { margin-left: 8px; font-size: 18px; }
 .page { width: min(1440px, calc(100% - 44px)); margin: 0 auto; padding: 56px 0 80px; }
 .eyebrow { text-transform: uppercase; letter-spacing: 2px; font-size: 11px; color: var(--teal); font-weight: 800; margin: 0 0 9px; }
