@@ -1,36 +1,53 @@
 import { boardRepository } from '../repositories/boardRepository.js'
 import { taskRepository } from '../repositories/taskRepository.js'
-import { ForbiddenError, NotFoundError } from '../utils/AppError.js'
+import { Activity } from '../models/Activity.js'
+import { ConflictError, ForbiddenError, NotFoundError } from '../utils/AppError.js'
 
-function requireOwnedTask(id, userId) {
-  const task = taskRepository.findById(id)
+async function requireOwnedTask(id, userId) {
+  const task = await taskRepository.findById(id)
   if (!task) throw new NotFoundError('Task')
-  if (!boardRepository.isMember(task.boardId, userId)) throw new ForbiddenError()
+  if (!await boardRepository.isMember(task.boardId, userId)) throw new ForbiddenError()
   return task
 }
 
-export function list(userId, query) {
-  const boardIds = boardRepository.listForUser(userId).map((board) => board.id)
-  let tasks = taskRepository.listByBoardIds(boardIds)
-  if (query.status) tasks = tasks.filter((task) => task.status === query.status)
-  if (query.assignee) tasks = tasks.filter((task) => task.assignee === query.assignee)
-  const direction = query.sort?.startsWith('-') ? -1 : 1
-  const sortField = query.sort?.replace(/^-/, '') || 'dueDate'
-  tasks = [...tasks].sort((a, b) => String(a[sortField]).localeCompare(String(b[sortField])) * direction)
-  const total = tasks.length
-  const page = query.page ?? 1
-  const limit = query.limit ?? 50
-  return { tasks: tasks.slice((page - 1) * limit, page * limit), meta: { page, limit, total } }
+export async function list(userId, query) {
+  const boardIds = (await boardRepository.listForUser(userId)).map((board) => board.id)
+  const { tasks, total } = await taskRepository.listByBoardIds(boardIds, query)
+  return { tasks, meta: { page: query.page, limit: query.limit, total } }
 }
 
-export function getOne(id, userId) { return requireOwnedTask(id, userId) }
+export async function getOne(id, userId) { return requireOwnedTask(id, userId) }
 
-export function create(input, userId) {
-  const allowedBoards = boardRepository.listForUser(userId)
+export async function create(input, userId) {
+  const allowedBoards = await boardRepository.listForUser(userId)
   const boardId = input.boardId ?? allowedBoards[0]?.id
-  if (!boardId || !boardRepository.isMember(boardId, userId)) throw new ForbiddenError('You cannot create tasks on this board')
-  return taskRepository.create({ ...input, boardId })
+  if (!boardId || !await boardRepository.isMember(boardId, userId)) throw new ForbiddenError('You cannot create tasks on this board')
+  const task = await taskRepository.create({ ...input, boardId, version: 0 })
+  await Activity.create({ boardId, taskId: task.id, userId, action: 'created', changes: input })
+  return task
 }
 
-export function update(id, changes, userId) { requireOwnedTask(id, userId); return taskRepository.update(id, changes) }
-export function remove(id, userId) { requireOwnedTask(id, userId); taskRepository.delete(id) }
+export async function update(id, input, userId) {
+  await requireOwnedTask(id, userId)
+  const { baseVersion, ...changes } = input
+  const task = await taskRepository.updateVersioned(id, baseVersion, changes)
+  if (!task) {
+    const current = await taskRepository.findById(id)
+    if (!current) throw new NotFoundError('Task')
+    throw new ConflictError('Task was modified by someone else', { current, yourVersion: baseVersion, attempted: changes })
+  }
+  await Activity.create({ boardId: task.boardId, taskId: task.id, userId, action: 'updated', changes })
+  return task
+}
+
+export async function remove(id, userId) {
+  const task = await requireOwnedTask(id, userId)
+  await taskRepository.delete(id)
+  await Activity.create({ boardId: task.boardId, taskId: task.id, userId, action: 'deleted' })
+}
+
+export async function overdueSummary(userId, { boardId }) {
+  const ownedBoardIds = (await boardRepository.listForUser(userId)).map((board) => board.id)
+  if (boardId && !ownedBoardIds.includes(boardId)) throw new ForbiddenError()
+  return taskRepository.overdueSummary(boardId ? [boardId] : ownedBoardIds)
+}
