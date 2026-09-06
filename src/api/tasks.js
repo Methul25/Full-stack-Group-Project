@@ -1,5 +1,7 @@
 import { request } from './client.js'
 
+export async function getAssignees() { return (await request('/api/tasks/assignees')).data }
+
 export async function getTasks(params = {}) {
   const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== ''))
   let result = await request(`/api/tasks?${query}`)

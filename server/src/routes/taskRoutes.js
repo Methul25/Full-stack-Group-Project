@@ -6,6 +6,7 @@ import { analyticsQuerySchema, createTaskSchema, taskIdSchema, taskQuerySchema, 
 import { asyncHandler } from '../utils/asyncHandler.js'
 
 const router = Router()
+router.get('/assignees', asyncHandler(controller.assignees))
 router.get('/analytics/overdue', validate(analyticsQuerySchema, 'query'), asyncHandler(controller.overdueSummary))
 router.get('/', validate(taskQuerySchema, 'query'), asyncHandler(controller.list))
 router.post('/', validate(createTaskSchema), asyncHandler(controller.create))

@@ -1,5 +1,7 @@
 import * as taskService from '../services/taskService.js'
 
+export async function assignees(req, res) { res.json({ data: await taskService.assignees(req.user.id) }) }
+
 export async function list(req, res) { const result = await taskService.list(req.user.id, req.validated.query); res.json({ data: result.tasks, meta: result.meta }) }
 export async function getOne(req, res) { res.json({ data: await taskService.getOne(req.validated.params.id, req.user.id) }) }
 export async function create(req, res) {
