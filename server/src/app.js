@@ -6,6 +6,7 @@ import { authenticate } from './middleware/authenticate.js'
 import { errorHandler, notFoundHandler } from './middleware/errorHandlers.js'
 import { requestContext } from './middleware/requestContext.js'
 import authRoutes from './routes/authRoutes.js'
+import boardRoutes from './routes/boardRoutes.js'
 import taskRoutes from './routes/taskRoutes.js'
 
 export const app = express()
@@ -20,6 +21,7 @@ app.get('/api/health', (req, res) => {
   res.status(healthy ? 200 : 503).json({ data: { status: healthy ? 'ok' : 'degraded', database, uptime: process.uptime() } })
 })
 app.use('/api/auth', authRoutes)
+app.use('/api/boards', authenticate, boardRoutes)
 app.use('/api/tasks', authenticate, taskRoutes)
 app.use(notFoundHandler)
 app.use(errorHandler)
