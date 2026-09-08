@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom'
 import { columns } from '../../data/columns.js'
 import { useTasks } from '../../hooks/useTasks.js'
+import { useBoard } from '../../hooks/useBoard.js'
 import Button from '../Button/Button.jsx'
 
 export default function TaskCard({ task }) {
   const { state, actions } = useTasks()
+  const board = useBoard()
   const index = columns.findIndex((column) => column.id === task.status)
   const due = new Date(`${task.dueDate}T00:00:00`)
   const overdue = task.status !== 'done' && due < new Date(new Date().setHours(0, 0, 0, 0))
@@ -17,7 +19,7 @@ export default function TaskCard({ task }) {
     <article className="task-card">
       <div className="task-card-topline">
         <span className="task-assignee">{task.assignee}</span>{task.syncState && <span className={`task-sync-badge task-sync-badge--${task.syncState}`}>{task.syncState}</span>}
-        <button className="delete-button" onClick={confirmDelete} disabled={state.saving} aria-label={`Delete ${task.title}`}>×</button>
+        {board.isOwner && <button className="delete-button" onClick={confirmDelete} disabled={state.saving} aria-label={`Delete ${task.title}`}>×</button>}
       </div>
       <Link to={`/tasks/${task.id}`}><h3>{task.title}</h3></Link>
       <div className="task-meta">
@@ -25,9 +27,9 @@ export default function TaskCard({ task }) {
         <span className={overdue ? 'overdue' : ''}>{overdue ? 'Overdue · ' : ''}{due.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
       </div>
       <div className="move-actions" aria-label={`Move ${task.title}`}>
-        <Button size="sm" variant="ghost" disabled={index === 0 || state.saving} onClick={() => actions.moveTask(task.id, columns[index - 1]?.id)}>←</Button>
+        <Button size="sm" variant="ghost" disabled={!board.canEdit || index === 0 || state.saving} onClick={() => actions.moveTask(task.id, columns[index - 1]?.id)}>←</Button>
         <span>Move</span>
-        <Button size="sm" variant="ghost" disabled={index === columns.length - 1 || state.saving} onClick={() => actions.moveTask(task.id, columns[index + 1]?.id)}>→</Button>
+        <Button size="sm" variant="ghost" disabled={!board.canEdit || index === columns.length - 1 || state.saving} onClick={() => actions.moveTask(task.id, columns[index + 1]?.id)}>→</Button>
       </div>
     </article>
   )

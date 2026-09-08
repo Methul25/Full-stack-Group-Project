@@ -7,9 +7,11 @@ import ConflictResolver from '../components/ConflictResolver/ConflictResolver.js
 import { columns } from '../data/columns.js'
 import { useFilteredTasks } from '../hooks/useFilteredTasks.js'
 import { useTasks } from '../hooks/useTasks.js'
+import { useBoard } from '../hooks/useBoard.js'
 
 export default function BoardPage() {
   const { state, actions } = useTasks()
+  const board = useBoard()
   const filteredTasks = useFilteredTasks()
   const activeFilters = state.query || state.assignee !== 'all' || state.status !== 'all'
 
@@ -30,7 +32,7 @@ export default function BoardPage() {
       ) : (
         <div className="board-grid">{columns.map((column) => <Column key={column.id} column={column} tasks={filteredTasks.filter((task) => task.status === column.id)} />)}</div>
       )}
-      {!activeFilters && <Link className="floating-add" to="/tasks/new" aria-label="Create a new task">+</Link>}
+      {!activeFilters && board.canEdit && <Link className="floating-add" to="/tasks/new" aria-label="Create a new task">+</Link>}
     </div>
   )
 }
