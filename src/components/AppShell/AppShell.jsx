@@ -1,8 +1,10 @@
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.js'
+import { useBoard } from '../../hooks/useBoard.js'
 
 export default function AppShell({ children }) {
   const auth = useAuth()
+  const board = useBoard()
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -11,7 +13,7 @@ export default function AppShell({ children }) {
           <span>syncboard</span>
         </Link>
         <nav aria-label="Primary navigation">
-          {auth.user ? <><NavLink to="/" end>Board</NavLink><NavLink className="new-task-link" to="/tasks/new">Add task <span aria-hidden="true">+</span></NavLink><span className="signed-in-user">{auth.user.name}</span><button className="logout-button" onClick={auth.logout}>Log out</button></> : <><NavLink to="/login">Log in</NavLink><NavLink to="/register">Register</NavLink></>}
+          {auth.user ? <><NavLink to="/" end>Board</NavLink><NavLink to="/team">Team</NavLink>{board.canEdit && <NavLink className="new-task-link" to="/tasks/new">Add task <span aria-hidden="true">+</span></NavLink>}<span className="signed-in-user">{auth.user.name}{board.board?.currentUserRole && <small>{board.board.currentUserRole}</small>}</span><button className="logout-button" onClick={auth.logout}>Log out</button></> : <><NavLink to="/login">Log in</NavLink><NavLink to="/register">Register</NavLink></>}
         </nav>
       </header>
       <main>{children}</main>

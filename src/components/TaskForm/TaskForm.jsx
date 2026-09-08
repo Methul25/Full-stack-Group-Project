@@ -1,34 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useBoard } from '../../hooks/useBoard.js'
 import Button from '../Button/Button.jsx'
-import { getAssignees } from '../../api/tasks.js'
-import { useAuth } from '../../hooks/useAuth.js'
 
 const initial = { title: '', assignee: '', status: 'todo', dueDate: '' }
 
 export default function TaskForm({ onSubmit, saving, serverErrors = [] }) {
-  const { user } = useAuth()
-  const cacheKey = `syncboard-assignees:${user.id}`
-  const [members, setMembers] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(cacheKey)) ?? [{ id: user.id, name: user.name }] }
-    catch { return [{ id: user.id, name: user.name }] }
-  })
-  const [values, setValues] = useState(() => ({ ...initial, assignee: user.name }))
+  const [values, setValues] = useState(initial)
   const [errors, setErrors] = useState({})
-  useEffect(() => {
-    let active = true
-    getAssignees().then((assignees) => {
-      if (!active) return
-      setMembers(assignees)
-      localStorage.setItem(cacheKey, JSON.stringify(assignees))
-    }).catch(() => { /* Cached members remain available offline; the API validates assignment on replay. */ })
-    return () => { active = false }
-  }, [cacheKey])
+  const { board } = useBoard()
+  const assignees = useMemo(() => board?.members.filter((member) => member.role !== 'viewer') ?? [], [board])
   const update = (event) => setValues((current) => ({ ...current, [event.target.name]: event.target.value }))
+
+  useEffect(() => {
+    if (assignees.length === 0) return
+    setValues((current) => assignees.some((member) => member.name === current.assignee) ? current : { ...current, assignee: assignees[0].name })
+  }, [assignees])
 
   const validate = () => {
     const next = {}
     if (!values.title.trim()) next.title = 'A title is required.'
     else if (values.title.trim().length < 3) next.title = 'Use at least 3 characters.'
+    if (!values.assignee) next.assignee = 'Choose an owner or editor.'
     if (!values.dueDate) next.dueDate = 'Choose a due date.'
     else if (new Date(`${values.dueDate}T00:00:00`) < new Date(new Date().setHours(0, 0, 0, 0))) next.dueDate = 'Due date cannot be in the past.'
     setErrors(next)
@@ -52,7 +44,7 @@ export default function TaskForm({ onSubmit, saving, serverErrors = [] }) {
       </label>
       <div className="form-section-heading"><span>02</span><div><h2>Planning details</h2><p>Set ownership, urgency, and timing.</p></div></div>
       <div className="form-grid">
-        <label>Assignee<select name="assignee" value={values.assignee} onChange={update}>{members.map((member) => <option key={member.id} value={member.name}>{member.name}</option>)}</select></label>
+        <label>Assignee<select name="assignee" value={values.assignee} onChange={update} disabled={assignees.length === 0}>{assignees.map((member) => <option key={member.id} value={member.name}>{member.name}</option>)}</select>{(errors.assignee || serverError('assignee')) && <small>{errors.assignee || serverError('assignee')}</small>}</label>
         <label>Status<select name="status" value={values.status} onChange={update}><option value="todo">To do</option><option value="doing">In progress</option><option value="done">Completed</option></select></label>
         <label>Due date <em>*</em><input type="date" name="dueDate" value={values.dueDate} onChange={update} aria-invalid={Boolean(errors.dueDate || serverError('dueDate'))} />{(errors.dueDate || serverError('dueDate')) && <small>{errors.dueDate || serverError('dueDate')}</small>}</label>
       </div>
