@@ -4,7 +4,12 @@ import { config } from '../config.js'
 import { userRepository, publicUser } from '../repositories/userRepository.js'
 import { AppError } from '../utils/AppError.js'
 
-const issueToken = (user) => jwt.sign({ sub: user.id, email: user.email }, config.jwtSecret, { expiresIn: config.jwtExpiresIn })
+const dummyPasswordHash = '$2b$12$C6UzMDM.H6dfI/f/IKcEe.6n7q5Yl8vCwZ3jZQmM1jR9p7W6E8f6u'
+const issueToken = (user) => jwt.sign(
+  { sub: user.id, email: user.email },
+  config.jwtSecret,
+  { algorithm: 'HS256', expiresIn: config.jwtExpiresIn, issuer: 'syncboard-api', audience: 'syncboard-client' },
+)
 
 export async function register(input) {
   if (await userRepository.findByEmail(input.email)) throw new AppError('Email is already registered', 409, 'EMAIL_EXISTS')
@@ -19,7 +24,7 @@ export async function register(input) {
 
 export async function login({ email, password }) {
   const user = await userRepository.findByEmail(email)
-  const valid = user ? await bcrypt.compare(password, user.passwordHash) : false
+  const valid = await bcrypt.compare(password, user?.passwordHash ?? dummyPasswordHash)
   if (!valid) throw new AppError('Invalid email or password', 401, 'BAD_CREDENTIALS')
   return { token: issueToken(user), user: publicUser(user) }
 }

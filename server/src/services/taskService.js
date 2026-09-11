@@ -16,11 +16,25 @@ async function resolveAssignee(board, name) {
   return { assignee: matches[0].name, assigneeId: matches[0].id }
 }
 
-async function requireOwnedTask(id, userId) {
+const canWrite = (board, userId) => board.members.some(
+  (member) => String(member.userId) === userId && ['owner', 'editor'].includes(member.role),
+)
+
+async function requireTaskAccess(id, userId, write = false) {
   const task = await taskRepository.findById(id)
   if (!task) throw new NotFoundError('Task')
-  if (!await boardRepository.isMember(task.boardId, userId)) throw new ForbiddenError()
-  return task
+  const board = await boardRepository.findForMember(task.boardId, userId)
+  if (!board) throw new ForbiddenError()
+  if (write && !canWrite(board, userId)) throw new ForbiddenError('This board role cannot change tasks')
+  return { task, board }
+}
+
+async function recordActivity(input) {
+  try {
+    await Activity.create(input)
+  } catch (error) {
+    console.error('Activity recording failed:', error.message)
+  }
 }
 
 export async function list(userId, query) {
@@ -29,24 +43,23 @@ export async function list(userId, query) {
   return { tasks, meta: { page: query.page, limit: query.limit, total } }
 }
 
-export async function getOne(id, userId) { return requireOwnedTask(id, userId) }
+export async function getOne(id, userId) { return (await requireTaskAccess(id, userId)).task }
 
 export async function create(input, userId) {
   const allowedBoards = await boardRepository.listForUser(userId)
   const boardId = input.boardId ?? allowedBoards[0]?.id
-  if (!boardId || !await boardRepository.isMember(boardId, userId)) throw new ForbiddenError('You cannot create tasks on this board')
   const board = allowedBoards.find((item) => item.id === boardId)
+  if (!board || !canWrite(board, userId)) throw new ForbiddenError('You cannot create tasks on this board')
   const assigned = await resolveAssignee(board, input.assignee)
   const task = await taskRepository.create({ ...input, ...assigned, boardId, version: 0 })
-  await Activity.create({ boardId, taskId: task.id, userId, action: 'created', changes: input })
+  await recordActivity({ boardId, taskId: task.id, userId, action: 'created', changes: input })
   return task
 }
 
 export async function update(id, input, userId) {
-  const existing = await requireOwnedTask(id, userId)
+  const { board } = await requireTaskAccess(id, userId, true)
   const { baseVersion, ...changes } = input
   if (changes.assignee !== undefined) {
-    const board = (await boardRepository.listForUser(userId)).find((item) => item.id === String(existing.boardId))
     Object.assign(changes, await resolveAssignee(board, changes.assignee))
   }
   const task = await taskRepository.updateVersioned(id, baseVersion, changes)
@@ -55,14 +68,14 @@ export async function update(id, input, userId) {
     if (!current) throw new NotFoundError('Task')
     throw new ConflictError('Task was modified by someone else', { current, yourVersion: baseVersion, attempted: changes })
   }
-  await Activity.create({ boardId: task.boardId, taskId: task.id, userId, action: 'updated', changes })
+  await recordActivity({ boardId: task.boardId, taskId: task.id, userId, action: 'updated', changes })
   return task
 }
 
 export async function remove(id, userId) {
-  const task = await requireOwnedTask(id, userId)
+  const { task } = await requireTaskAccess(id, userId, true)
   await taskRepository.delete(id)
-  await Activity.create({ boardId: task.boardId, taskId: task.id, userId, action: 'deleted' })
+  await recordActivity({ boardId: task.boardId, taskId: task.id, userId, action: 'deleted' })
 }
 
 export async function overdueSummary(userId, { boardId }) {

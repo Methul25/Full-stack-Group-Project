@@ -21,7 +21,7 @@ export default [
     },
   },
   {
-    files: ['server/**/*.js'],
+    files: ['server/**/*.js', 'vitest.config.js'],
     languageOptions: { ecmaVersion: 2022, globals: globals.node, sourceType: 'module' },
   },
 ]

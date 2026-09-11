@@ -8,4 +8,8 @@ export const boardRepository = {
   async isMember(boardId, userId) {
     return Boolean(await Board.exists({ _id: boardId, 'members.userId': userId }))
   },
+  async findForMember(boardId, userId) {
+    const board = await Board.findOne({ _id: boardId, 'members.userId': userId })
+    return board?.toJSON() ?? null
+  },
 }

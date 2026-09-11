@@ -11,8 +11,9 @@ function cachedUser() {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(cachedUser)
-  const [loading, setLoading] = useState(Boolean(localStorage.getItem(TOKEN_KEY)) && !cachedUser())
+  const token = localStorage.getItem(TOKEN_KEY)
+  const [user, setUser] = useState(() => token ? cachedUser() : null)
+  const [loading, setLoading] = useState(Boolean(token))
   const [error, setError] = useState(null)
   const logout = useCallback(() => { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); setUser(null); setError(null) }, [])
 

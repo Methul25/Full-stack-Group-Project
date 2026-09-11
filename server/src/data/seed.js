@@ -9,13 +9,8 @@ const columns = [
   { title: 'Completed', position: 2 },
 ]
 
-export async function seedDatabase() {
+export async function seedDatabase(seedPassword) {
   if (await User.exists({})) return
-
-  const seedPassword = process.env.SEED_USER_PASSWORD
-  if (!seedPassword || seedPassword.length < 8) {
-    throw new Error('SEED_USER_PASSWORD must contain at least 8 characters when seeding demo data.')
-  }
   const passwordHash = await bcrypt.hash(seedPassword, 12)
   const [maya, noah] = await User.create([
     { name: 'Maya', email: 'maya@syncboard.test', passwordHash },

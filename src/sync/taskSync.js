@@ -60,14 +60,18 @@ export async function updateOrQueue(userId, task, changes) {
 }
 
 export async function deleteOrQueue(userId, task) {
-  await removeCachedTask(userId, task.id)
   if (task.id.startsWith('local-')) {
+    await removeCachedTask(userId, task.id)
     await cancelQueuedCreate(userId, task.id)
     return
   }
-  try { await tasksApi.deleteTask(task.id) }
+  try {
+    await tasksApi.deleteTask(task.id)
+    await removeCachedTask(userId, task.id)
+  }
   catch (error) {
     if (!isNetworkError(error)) throw error
+    await removeCachedTask(userId, task.id)
     await enqueueMutation(userId, { operation: 'delete', taskId: task.id, base: task })
   }
 }

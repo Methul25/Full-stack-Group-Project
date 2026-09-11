@@ -8,14 +8,21 @@ import { asyncHandler } from '../utils/asyncHandler.js'
 import { AppError } from '../utils/AppError.js'
 
 const router = Router()
+const limiterResponse = (req, res, next) => {
+  void req
+  void res
+  next(new AppError('Too many authentication attempts. Try again later.', 429, 'RATE_LIMITED'))
+}
 const loginLimiter = rateLimit({
   windowMs: 60_000,
   limit: 5,
+  skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req, res, next) => next(new AppError('Too many login attempts. Try again in one minute.', 429, 'RATE_LIMITED')),
+  handler: limiterResponse,
 })
-router.post('/register', validate(registerSchema), asyncHandler(controller.register))
+const registerLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, handler: limiterResponse })
+router.post('/register', registerLimiter, validate(registerSchema), asyncHandler(controller.register))
 router.post('/login', loginLimiter, validate(loginSchema), asyncHandler(controller.login))
 router.get('/me', authenticate, asyncHandler(controller.me))
 export default router

@@ -23,7 +23,7 @@ export const taskRepository = {
     return serialize(await Task.findOneAndUpdate(
       { _id: id, version: baseVersion },
       { $set: changes, $inc: { version: 1 } },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     ))
   },
   async delete(id) { return Boolean(await Task.findByIdAndDelete(id)) },
