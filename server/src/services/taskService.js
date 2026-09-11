@@ -5,51 +5,52 @@ import { userRepository } from '../repositories/userRepository.js'
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../utils/AppError.js'
 
 export async function assignees(userId) {
-  const board = (await boardRepository.listForUser(userId))[0]
-  return board ? userRepository.findByIds(board.members.map((member) => member.userId)) : []
-}
-
-async function resolveAssignee(board, name) {
-  const members = await userRepository.findByIds(board.members.map((member) => member.userId))
-  const matches = members.filter((member) => member.name === name)
-  if (matches.length !== 1) throw new ValidationError([{ field: 'assignee', message: 'Choose a uniquely named member of this board.' }])
-  return { assignee: matches[0].name, assigneeId: matches[0].id }
-}
-
-const canWrite = (board, userId) => board.members.some(
-  (member) => String(member.userId) === userId && ['owner', 'editor'].includes(member.role),
-)
-
-async function requireTaskAccess(id, userId, write = false) {
-  const task = await taskRepository.findById(id)
-  if (!task) throw new NotFoundError('Task')
-  const board = await boardRepository.findForMember(task.boardId, userId)
-  if (!board) throw new ForbiddenError()
-  if (write && !canWrite(board, userId)) throw new ForbiddenError('This board role cannot change tasks')
-  return { task, board }
+  const board = await boardRepository.primaryForUser(userId)
+  return board ? userRepository.findByIds(board.members.filter((member) => member.role !== 'viewer').map((member) => member.userId)) : []
 }
 
 async function recordActivity(input) {
   try {
     await Activity.create(input)
-  } catch (error) {
-    console.error('Activity recording failed:', error.message)
+  } catch {
+    console.error('Activity recording failed')
   }
 }
 
+const editRoles = new Set(['owner', 'editor'])
+
+async function requireTaskAccess(id, userId, allowedRoles) {
+  const task = await taskRepository.findById(id)
+  if (!task) throw new NotFoundError('Task')
+  const role = await boardRepository.roleForUser(task.boardId, userId)
+  if (!role) throw new ForbiddenError()
+  if (allowedRoles && !allowedRoles.has(role)) throw new ForbiddenError('Your board role does not allow this action')
+  return task
+}
+
+async function resolveAssignee(board, name) {
+  const assignableIds = board.members.filter((member) => member.role !== 'viewer').map((member) => member.userId)
+  const users = await userRepository.findByIds(assignableIds)
+  const matches = users.filter((member) => member.name === name)
+  if (matches.length !== 1) {
+    throw new ValidationError([{ field: 'assignee', message: 'Choose an owner or editor with a unique name on this board.' }])
+  }
+  return { assignee: matches[0].name, assigneeId: matches[0].id }
+}
+
 export async function list(userId, query) {
-  const boardIds = (await boardRepository.listForUser(userId)).map((board) => board.id)
-  const { tasks, total } = await taskRepository.listByBoardIds(boardIds, query)
+  const board = await boardRepository.primaryForUser(userId)
+  const { tasks, total } = await taskRepository.listByBoardIds(board ? [board.id] : [], query)
   return { tasks, meta: { page: query.page, limit: query.limit, total } }
 }
 
-export async function getOne(id, userId) { return (await requireTaskAccess(id, userId)).task }
+export async function getOne(id, userId) { return requireTaskAccess(id, userId) }
 
 export async function create(input, userId) {
-  const allowedBoards = await boardRepository.listForUser(userId)
-  const boardId = input.boardId ?? allowedBoards[0]?.id
-  const board = allowedBoards.find((item) => item.id === boardId)
-  if (!board || !canWrite(board, userId)) throw new ForbiddenError('You cannot create tasks on this board')
+  const board = await boardRepository.primaryForUser(userId)
+  const boardId = input.boardId ?? board?.id
+  const role = board?.members.find((member) => String(member.userId) === String(userId))?.role
+  if (!board || board.id !== boardId || !editRoles.has(role)) throw new ForbiddenError('Your board role does not allow task creation')
   const assigned = await resolveAssignee(board, input.assignee)
   const task = await taskRepository.create({ ...input, ...assigned, boardId, version: 0 })
   await recordActivity({ boardId, taskId: task.id, userId, action: 'created', changes: input })
@@ -57,9 +58,11 @@ export async function create(input, userId) {
 }
 
 export async function update(id, input, userId) {
-  const { board } = await requireTaskAccess(id, userId, true)
+  const existing = await requireTaskAccess(id, userId, editRoles)
   const { baseVersion, ...changes } = input
   if (changes.assignee !== undefined) {
+    const board = await boardRepository.primaryForUser(userId)
+    if (!board || board.id !== String(existing.boardId)) throw new ForbiddenError()
     Object.assign(changes, await resolveAssignee(board, changes.assignee))
   }
   const task = await taskRepository.updateVersioned(id, baseVersion, changes)
@@ -73,13 +76,13 @@ export async function update(id, input, userId) {
 }
 
 export async function remove(id, userId) {
-  const { task } = await requireTaskAccess(id, userId, true)
+  const task = await requireTaskAccess(id, userId, new Set(['owner']))
   await taskRepository.delete(id)
   await recordActivity({ boardId: task.boardId, taskId: task.id, userId, action: 'deleted' })
 }
 
 export async function overdueSummary(userId, { boardId }) {
-  const ownedBoardIds = (await boardRepository.listForUser(userId)).map((board) => board.id)
-  if (boardId && !ownedBoardIds.includes(boardId)) throw new ForbiddenError()
-  return taskRepository.overdueSummary(boardId ? [boardId] : ownedBoardIds)
+  const board = await boardRepository.primaryForUser(userId)
+  if (!board || (boardId && board.id !== boardId)) throw new ForbiddenError()
+  return taskRepository.overdueSummary([board.id])
 }
