@@ -11,6 +11,7 @@ import taskRoutes from './routes/taskRoutes.js'
 
 export const app = express()
 app.disable('x-powered-by')
+app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false)
 app.use(cors({ origin: config.clientOrigin, credentials: true, methods: ['GET', 'POST', 'PATCH', 'DELETE'] }))
 app.use(express.json({ limit: '100kb' }))
 app.use(requestContext)
