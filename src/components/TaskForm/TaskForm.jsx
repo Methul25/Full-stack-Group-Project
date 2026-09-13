@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useBoard } from '../../hooks/useBoard.js'
 import Button from '../Button/Button.jsx'
 
-const initial = { title: '', assignee: '', status: 'todo', dueDate: '' }
+const initial = { title: '', description: '', assignee: '', status: 'todo', dueDate: '' }
 
 export default function TaskForm({ onSubmit, saving, serverErrors = [] }) {
   const [values, setValues] = useState(initial)
@@ -30,7 +30,7 @@ export default function TaskForm({ onSubmit, saving, serverErrors = [] }) {
   const submit = async (event) => {
     event.preventDefault()
     if (!validate()) return
-    try { await onSubmit({ ...values, title: values.title.trim() }) } catch { /* context renders the API error */ }
+    try { await onSubmit({ ...values, title: values.title.trim(), description: values.description.trim() }) } catch { /* context renders the API error */ }
   }
 
   const serverError = (field) => serverErrors.find((item) => item.field === field)?.message
@@ -41,6 +41,10 @@ export default function TaskForm({ onSubmit, saving, serverErrors = [] }) {
       <label className="full-field">Task title <em>*</em>
         <input name="title" value={values.title} onChange={update} aria-invalid={Boolean(errors.title)} aria-describedby="title-error" placeholder="e.g. Review onboarding copy" autoFocus />
         {(errors.title || serverError('title')) && <small id="title-error">{errors.title || serverError('title')}</small>}
+      </label>
+      <label className="full-field">Additional details
+        <textarea name="description" value={values.description} onChange={update} maxLength="2000" rows="5" placeholder="Add context, requirements, or useful links…" />
+        {serverError('description') && <small>{serverError('description')}</small>}
       </label>
       <div className="form-section-heading"><span>02</span><div><h2>Planning details</h2><p>Set ownership, urgency, and timing.</p></div></div>
       <div className="form-grid">

@@ -16,6 +16,10 @@ export default function TaskDetailPage() {
       <article className="detail-card">
         <div className="detail-kicker"><span style={{ background: column.accent }} />{column.label}</div>
         <h1>{task.title}</h1>
+        <section className="detail-description">
+          <h2>Additional details</h2>
+          <p>{task.description || 'No additional details were provided.'}</p>
+        </section>
         <dl><div><dt>Assignee</dt><dd><span className="avatar">{task.assignee[0]}</span>{task.assignee}</dd></div><div><dt>Status</dt><dd>{column.label}</dd></div><div><dt>Due date</dt><dd>{new Date(`${task.dueDate}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</dd></div></dl>
       </article>
     </div>
